@@ -1,0 +1,76 @@
+from flask import Flask, request, jsonify
+import base64
+import magic
+import uuid
+import os
+
+app = Flask(__name__)
+
+# Generate a unique user ID and email address
+user_id = str(uuid.uuid4())
+email = f"{user_id}@example.com"
+
+def process_data(data):
+    if not isinstance(data, list):
+        raise ValueError("Data must be a list")
+    numbers = [x for x in data if x.isdigit()]
+    alphabets = [x for x in data if x.isalpha()]
+    highest_lowercase = [max([x for x in alphabets if x.islower()])] if any(x.islower() for x in alphabets) else []
+    return numbers, alphabets, highest_lowercase
+
+def process_file(file_b64):
+    try:
+        file_bytes = base64.b64decode(file_b64)
+        file_mime_type = magic.from_buffer(file_bytes, mime=True)
+        file_size_kb = len(file_bytes) / 1024
+        return file_mime_type, file_size_kb
+    except Exception as e:
+        raise ValueError("Invalid file") from e
+
+@app.route('/bfhl', methods=['POST'])
+def post_bfhl():
+    try:
+        content = request.json
+        data = content.get("data")
+        file_b64 = content.get("file_b64", "")
+
+        if not data:
+            raise ValueError("Data is required")
+
+        # Processing data
+        numbers, alphabets, highest_lowercase = process_data(data)
+
+        # File handling
+        if file_b64:
+            file_mime_type, file_size_kb = process_file(file_b64)
+            file_valid = True
+        else:
+            file_valid = False
+            file_size_kb = 0
+            file_mime_type = ""
+
+        response = {
+            "is_success": True,
+            "user_id": user_id,
+            "email": email,
+            "roll_number": "ABCD123",  # Replace with actual roll number logic
+            "numbers": numbers,
+            "alphabets": alphabets,
+            "highest_lowercase_alphabet": highest_lowercase,
+            "file_valid": file_valid,
+            "file_mime_type": file_mime_type,
+            "file_size_kb": file_size_kb
+        }
+    except Exception as e:
+        response = {
+            "is_success": False,
+            "error": str(e)
+        }
+    return jsonify(response)
+
+@app.route('/bfhl', methods=['GET'])
+def get_bfhl():
+    return jsonify({"operation_code": 1})
+
+if __name__ == '__main__':
+    app.run(debug=True)
